@@ -67,14 +67,14 @@ let PrettierOptions = {
 };
 
 let ReexportHook = `
-export { useFonts } from './useFonts';
+exports.useFonts = require('./useFonts').useFonts;
 `;
 let ReexportHookDefinition = `
 export { useFonts } from './useFonts';
 `;
 
 let CPUBoundConcurrency = Math.max(1, physicalCpuCount - 1);
-let NetworkBoundConcurrency = 3;
+let NetworkBoundConcurrency = 12;
 let IOBoundConcurrency = 2;
 
 async function main({ images, download } = { images: true, download: true }) {
@@ -390,7 +390,7 @@ async function generateFontPackage(webfont) {
   code += ReexportHook + '\n';
   dts += ReexportHookDefinition + '\n';
 
-  code += `export { default as __metadata__ } from './metadata.json';\n`;
+  code += `exports.__metadata__ = require('./metadata.json').default;\n`;
   dts += `export const __metadata__: Any;\n`;
 
   // metadata.json
@@ -406,7 +406,7 @@ async function generateFontPackage(webfont) {
   for (let variantKey of webfont.variants) {
     let v = varNameForFontVariant(webfont, variantKey);
     let ffn = filenameForFontVariant(webfont, variantKey);
-    code += `export const ${v} = require(${JSON.stringify('./' + ffn)});\n`;
+    code += `exports.${v} = require(${JSON.stringify('./' + ffn)});\n`;
     dts += `export const ${v}: number;\n`; // TODO: Is there an easy way to do type-aliasing so we could refer to this as a module or something?
 
     // link fonts and image previews
@@ -724,16 +724,10 @@ async function generateDevPackage(fontDirectory) {
   code += ReexportHook;
   dts += ReexportHookDefinition;
 
-  function validateFontUrlUsesHttps(fontUrl) {
-    const url = new URL(fontUrl);
-    if (url.protocol === 'http:') url.protocol = 'https:';
-    return url.toString();
-  }
-
   for (let webfont of fontDirectory.items) {
     for (let variantKey of webfont.variants) {
       let v = varNameForFontVariant(webfont, variantKey);
-      let ttfUrl = validateFontUrlUsesHttps(webfont.files[variantKey]);
+      let ttfUrl = webfont.files[variantKey];
       code += `export const ${v} = ${JSON.stringify(ttfUrl)};\n`;
       dts += `export const ${v}: string;\n`;
     }
@@ -800,35 +794,12 @@ async function generateRootReadme(fontDirectory) {
     variantCount += webfont.variants.length;
   }
 
-  let md = `<p align="center">
-  <a href="https://github.com/expo/google-fonts">
-    <img alt="Expo Google Fonts" src="./gifs/title.gif">
-  </a>
-</p>
-
-<p align="center">Use any of the ${fontDirectory.items.length} fonts and variants from <a href="https://fonts.google.com" target="_blank">fonts.google.com</a> in your Expo app</p>
-
-<p align="center">
-  <a aria-label="npm version" href="https://www.npmjs.com/org/expo-google-fonts" target="_blank">
-    <img alt="expo-google-fonts npm version" src="https://flat.badgen.net/npm/v/@expo-google-fonts/dev" />
-  </a>
-  <a aria-label="Expo is free to use" href="https://github.com/expo/expo/blob/master/LICENSE" target="_blank">
-    <img alt="License: MIT" src="https://flat.badgen.net/github/license/expo/google-fonts" target="_blank" />
-  </a>
-</p>
-
-<p>
-  <a aria-label="Follow @expo on Twitter" href="https://twitter.com/intent/follow?screen_name=expo" target="_blank">
-    <img  alt="Twitter: expo" src="https://img.shields.io/twitter/follow/expo.svg?style=flat-square&label=Follow%20%40expo&logo=TWITTER&logoColor=FFFFFF&labelColor=00aced&logoWidth=15&color=lightgray" target="_blank" />
-  </a>
-  <a aria-label="Follow Expo on Medium" href="https://blog.expo.io">
-    <img align="right" alt="Medium: exposition" src="https://img.shields.io/badge/Learn%20more%20on%20our%20blog-lightgray.svg?style=flat-square" target="_blank" />
-  </a>
-</p>
+  let md = `# expo-google-fonts
   
----
+![npm version](https://flat.badgen.net/npm/v/@expo-google-fonts/dev)
+![license](https://flat.badgen.net/github/license/expo/google-fonts)
 
-# expo-google-fonts
+![Expo Google Fonts](./gifs/title.gif)
 
 The \`@expo-google-fonts\` packages for Expo allow you to easily use 
 any of ${fontDirectory.items.length} fonts (and their variants) from 
